@@ -1,5 +1,0 @@
-FILE 2 
-
-Flask==3.0.3
-cryptography==42.0.5
-Werkzeug==3.0.1
