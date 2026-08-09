@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 Not Found</title>
+    <style>
+        /* BASE THEME: Mimics a standard broken browser webpage */
+        body { 
+            background-color: #ffffff; 
+            color: #000000; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+            user-select: none;
+        }
+        .error-message {
+            text-align: center;
+            max-width: 600px;
+            padding: 20px;
+        }
+        h1 { font-size: 24px; font-weight: 500; margin-bottom: 8px; }
+        p { color: #666; font-size: 14px; margin-top: 0; }
+
+        /* STEALTH AUTHENTICATION SCREEN: Invisible by default */
+        .stealth-container { 
+            display: none; 
+            text-align: center; 
+            width: 90%; 
+            max-width: 360px; 
+            font-family: monospace;
+        }
+        .stealth-container h3 { font-size: 16px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 20px; }
+        input { 
+            width: 100%; 
+            padding: 14px; 
+            margin-top: 10px; 
+            border: 1px solid #000000; 
+            background: #ffffff; 
+            box-sizing: border-box; 
+            font-family: monospace;
+            font-size: 14px;
+            outline: none;
+        }
+        button { 
+            width: 100%; 
+            padding: 14px; 
+            margin-top: 12px; 
+            background-color: #000000; 
+            color: #ffffff; 
+            border: none; 
+            cursor: pointer; 
+            font-family: monospace; 
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+        button:hover { background-color: #333333; }
+
+        /* THE FAMILY VAULT DASHBOARD: Displays decrypted information */
+        .vault-dashboard {
+            display: none;
+            width: 95%;
+            max-width: 500px;
+            padding: 20px;
+            border: 1px dashed #000000;
+            background-color: #fafafa;
+            text-align: left;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- STAGE 1: Public Cover Page -->
+    <div id="public-error" class="error-message">
+        <h1 id="stealth-trigger">404 Not Found</h1>
+        <p>The requested URL was not found on this server. That’s all we know.</p>
+    </div>
+
+    <!-- STAGE 2: Hidden Security Gate -->
+    <div id="stealth-gate" class="stealth-container">
+        <h3>System Authorization Required</h3>
+        <input type="password" id="passphraseInput" placeholder="ENTER SECRET KEY">
+        <button onclick="executeDecryption()">Verify Access</button>
+    </div>
+
+    <!-- STAGE 3: Secure Asset Dashboard -->
+    <div id="family-vault" class="vault-dashboard">
+        <h2 style="margin-top: 0; font-size: 16px;">🔒 FAMILY STEALTH VAULT STATUS: ACTIVE</h2>
+        <hr style="border: 0; border-top: 1px solid #000;">
+        <div id="decrypted-payload-output" style="white-space: pre-wrap; font-size: 13px; line-height: 1.6;"></div>
+    </div>
+
+    <script>
+        // STEALTH TRIGGER: Tapping the "404 Not Found" title exactly 5 times drops the wall
+        let securityTapCount = 0;
+        document.getElementById('stealth-trigger').addEventListener('click', () => {
+            securityTapCount++;
+            if (securityTapCount >= 5) {
+                document.getElementById('public-error').style.display = 'none';
+                document.getElementById('stealth-gate').style.display = 'block';
+            }
+        });
+
+        // REACTION CLIENT LOGIC: Sends the key to your app.py backend
+        async function executeDecryption() {
+            const enteredKey = document.getElementById('passphraseInput').value;
+            const linkUuidPath = window.location.pathname.substring(1);
+
+            try {
+                const response = await fetch(`/api/verify/${linkUuidPath}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ secret_phrase: enteredKey })
+                });
+                
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    // Success: Remove the authentication interface and display data
+                    document.getElementById('stealth-gate').style.display = 'none';
+                    const vaultDiv = document.getElementById('family-vault');
+                    vaultDiv.style.display = 'block';
+                    document.getElementById('decrypted-payload-output').innerText = result.payload;
+                } else {
+                    alert('Invalid Clearance Credentials.');
+                    // Reset security sequence to force them to tap again if they guess wrong
+                    securityTapCount = 0;
+                    document.getElementById('stealth-gate').style.display = 'none';
+                    document.getElementById('public-error').style.display = 'block';
+                    document.getElementById('passphraseInput').value = '';
+                }
+            } catch (error) {
+                alert('Connection tracking error.');
+            }
+        }
+    </script>
+</body>
+</html>
