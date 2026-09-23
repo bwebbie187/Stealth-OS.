@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sweeper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #cfeaff;
+  --board: #2f5fd0;
+  --panel: rgba(255, 255, 255, 0.6);
+  --ink: #10263d;
+  --ink-soft: #35506b;
+  --tile-up: #56c271;
+  --tile-up-hi: #8be3a0;
+  --tile-up-lo: #2f9450;
+  --tile-down: #f6e7c1;
+  --tile-down-edge: #e2cf9f;
+  --flag: #e0342a;
+  --mine: #10263d;
+  --vault: #17594a;
+  --vault-b: #2d3a86;
+  --vault-ink: #eafaf5;
+  --focus: #f59e0b;
+  --n1: #1d4ed8; --n2: #15803d; --n3: #c81e1e; --n4: #6d28d9;
+  --n5: #92400e; --n6: #0e7490; --n7: #1f2937; --n8: #6b7280;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1b2d;
+    --board: #1b2f52; --panel: rgba(255, 255, 255, 0.08);
+    --ink: #eaf2ff;
+    --ink-soft: #9fb4cc;
+    --tile-up: #2fa866;
+    --tile-up-hi: #59cf8a;
+    --tile-up-lo: #1f7444;
+    --tile-down: #0e1726;
+    --tile-down-edge: #24344d;
+    --flag: #ff6a5c;
+    --mine: #eaf2ff;
+    --vault: #15453a;
+    --vault-b: #1f2a5c;
+    --vault-ink: #dff7ef;
+    --focus: #fbbf24;
+    --n1: #6fa1ff; --n2: #55c27f; --n3: #ff7a6b; --n4: #b98cf2;
+    --n5: #d9a05b; --n6: #4fc9d3; --n7: #c9d3d9; --n8: #98a6af;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1b2d;
+  --board: #1b2f52; --panel: rgba(255, 255, 255, 0.08);
+  --ink: #eaf2ff;
+  --ink-soft: #9fb4cc;
+  --tile-up: #2fa866;
+  --tile-up-hi: #59cf8a;
+  --tile-up-lo: #1f7444;
+  --tile-down: #0e1726;
+  --tile-down-edge: #24344d;
+  --flag: #ff6a5c;
+  --mine: #eaf2ff;
+  --vault: #15453a;
+  --vault-b: #1f2a5c;
+  --vault-ink: #dff7ef;
+  --focus: #fbbf24;
+  --n1: #6fa1ff; --n2: #55c27f; --n3: #ff7a6b; --n4: #b98cf2;
+  --n5: #d9a05b; --n6: #4fc9d3; --n7: #c9d3d9; --n8: #98a6af;
+}
+/* Sunset tiles (shop item). Placed after the theme blocks so it wins. */
+:root[data-tiles="sunset"] {
+  --tile-up: #ff8a4c;
+  --tile-up-hi: #ffb27d;
+  --tile-up-lo: #d4622a;
+  --board: #7a2e5c;
+}
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+}
+.app { width: 100%; max-width: 440px; padding: 20px 16px 28px; }
+h1 { margin: 0 0 14px; font-size: 30px; font-weight: 700; letter-spacing: -0.02em; }
+h2 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.hud { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.stat { font-size: 15px; color: var(--ink-soft); min-width: 96px; }
+.stat.right { text-align: right; }
+.stat b { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-weight: 600; font-size: 18px; color: var(--ink); }
+.btn {
+  border: 0; cursor: pointer; padding: 10px 16px; border-radius: 10px;
+  background: var(--ink); color: var(--bg); font-weight: 700; font-size: 15px;
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); }
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 3px;
+  padding: 8px;
+  background: var(--board);
+  border-radius: 14px;
+  perspective: 700px;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tile {
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--tile-up);
+  box-shadow: inset 0 2px 0 var(--tile-up-hi), inset 0 -3px 0 var(--tile-up-lo);
+  font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-weight: 600;
+  font-size: clamp(15px, 5.4vw, 22px);
+  line-height: 1;
+  color: var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.tile.open { background: var(--tile-down); box-shadow: inset 0 0 0 1px var(--tile-down-edge); cursor: default; }
+.tile.boom { background: var(--flag); }
+.tile.boom svg circle, .tile.boom svg path { fill: #fff; stroke: #fff; }
+.tile.wrong { box-shadow: inset 0 0 0 2px var(--flag); }
+.tile svg { width: 62%; height: 62%; display: block; }
+.tile[data-n="1"] { color: var(--n1); } .tile[data-n="2"] { color: var(--n2); }
+.tile[data-n="3"] { color: var(--n3); } .tile[data-n="4"] { color: var(--n4); }
+.tile[data-n="5"] { color: var(--n5); } .tile[data-n="6"] { color: var(--n6); }
+.tile[data-n="7"] { color: var(--n7); } .tile[data-n="8"] { color: var(--n8); }
+.tile.mark-f { box-shadow: inset 0 0 0 2px var(--flag); cursor: pointer; }
+.tile.mark-d { box-shadow: inset 0 0 0 2px var(--n2); cursor: pointer; }
+.tile .mk { font-size: 11px; line-height: 1.15; text-align: center; letter-spacing: -0.02em; }
+
+.board.unlocking .tile {
+  transform: rotateY(180deg) scale(0.55);
+  opacity: 0;
+  transition: transform 0.45s ease, opacity 0.45s ease;
+  transition-delay: var(--d, 0ms);
+}
+
+.status { min-height: 1.4em; margin: 12px 2px 0; color: var(--ink-soft); font-size: 15px; }
+.mode { display: flex; gap: 4px; padding: 4px; margin-top: 12px; background: var(--panel); border-radius: 12px; }
+.mode button {
+  flex: 1; border: 0; cursor: pointer; padding: 10px; border-radius: 9px;
+  background: transparent; font-weight: 700; font-size: 15px; color: var(--ink-soft);
+}
+.mode button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+.rec-only { display: none; }
+#game.recording .rec-only { display: block; }
+#game.recording .play-only { display: none; }
+.rec-count { margin: 14px 2px 0; font-size: 15px; }
+.rec-actions { display: flex; gap: 8px; margin-top: 12px; }
+.rec-actions .btn { flex: 1; padding: 11px 8px; }
+
+.hint, .patterns { margin-top: 18px; font-size: 14px; color: var(--ink-soft); }
+.hint summary, .patterns summary { cursor: pointer; width: fit-content; }
+.hint p { margin: 8px 0 0; max-width: 60ch; }
+.prow {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 0; border-top: 1px solid var(--tile-down-edge);
+}
+.patterns .prow:first-of-type { margin-top: 10px; }
+.prow strong { color: var(--ink); font-size: 16px; }
+.prow small { display: block; font-size: 14px; }
+.prow .btn { padding: 8px 14px; }
+.fine { margin: 6px 0 8px; max-width: 60ch; }
+.linkish {
+  border: 0; background: none; padding: 4px 0; cursor: pointer;
+  color: var(--ink); font-size: 14px; text-decoration: underline; text-underline-offset: 3px;
+}
+
+.shop { margin-top: 18px; font-size: 14px; color: var(--ink-soft); }
+.shop summary { cursor: pointer; width: fit-content; }
+.coin-line { margin: 10px 0 0; color: var(--ink); }
+.coin-line b { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-weight: 600; font-size: 18px; }
+.fine-inline { margin-left: 6px; font-size: 13px; color: var(--ink-soft); }
+.coin-actions { display: flex; gap: 8px; margin: 10px 0 6px; }
+.coin-actions .btn { flex: 1; padding: 10px 8px; }
+
+.plans { margin-top: 18px; font-size: 14px; color: var(--ink-soft); }
+.plans summary { cursor: pointer; width: fit-content; }
+.cycle { display: flex; gap: 4px; padding: 4px; margin-top: 10px; background: var(--panel); border-radius: 12px; }
+.cycle button {
+  flex: 1; border: 0; cursor: pointer; padding: 8px; border-radius: 9px;
+  background: transparent; font-weight: 700; font-size: 14px; color: var(--ink-soft);
+}
+.cycle button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.plan { margin-top: 10px; padding: 14px; border-radius: 14px; background: var(--panel); color: var(--ink); }
+.plan.pro { background: var(--vault); color: var(--vault-ink); }
+.plan h3 { margin: 0; font-size: 18px; }
+.plan .price { margin: 4px 0 8px; font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-weight: 600; font-size: 24px; }
+.plan .price small { font-size: 13px; font-weight: 500; opacity: 0.8; }
+.plan ul { margin: 0 0 4px; padding-left: 18px; }
+.plan.pro .btn { margin-top: 10px; width: 100%; background: var(--vault-ink); color: var(--vault); }
+
+.vault { opacity: 0; transform: translateY(10px); transition: opacity 0.4s ease, transform 0.4s ease; }
+.vault.in { opacity: 1; transform: none; }
+.vault[hidden] { display: none; }
+.vault-card { background: var(--vault); color: var(--vault-ink); border-radius: 20px; padding: 22px 20px 20px; }
+.vault[data-vault="b"] .vault-card { background: var(--vault-b); }
+.vault-head { display: flex; align-items: center; gap: 10px; }
+.vault-head svg { width: 24px; height: 24px; }
+.vault-head h2:focus { outline: none; }
+.bal { margin: 22px 0 2px; font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-weight: 600; font-size: 32px; letter-spacing: -0.02em; }
+.bal small { font-size: 16px; font-weight: 500; opacity: 0.8; }
+.bal-note { margin: 0; font-size: 14px; opacity: 0.8; }
+.addr {
+  margin: 18px 0 0; padding: 12px 14px; border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 13px;
+  overflow-x: auto; white-space: nowrap;
+}
+.actions { display: flex; gap: 10px; margin-top: 14px; }
+.actions button {
+  flex: 1; border: 0; cursor: pointer; padding: 13px; border-radius: 12px;
+  background: rgba(255, 255, 255, 0.16); color: var(--vault-ink); font-weight: 700; font-size: 16px;
+}
+.balances { margin: 20px 0 4px; display: grid; gap: 10px; }
+.bal-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 12px 14px; border-radius: 12px; background: rgba(0, 0, 0, 0.18);
+}
+.bal-label { font-size: 14px; opacity: 0.85; }
+.bal-val { font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; font-weight: 600; font-size: 22px; letter-spacing: -0.02em; }
+.vault-msg { min-height: 1.4em; margin: 12px 2px 0; font-size: 14px; color: var(--vault-ink); opacity: 0.9; }
+.lock-btn {
+  display: block; width: 100%; margin-top: 14px; cursor: pointer; padding: 13px; border-radius: 12px;
+  background: transparent; border: 2px solid var(--ink); color: var(--ink); font-weight: 700; font-size: 16px;
+}
+.note { margin: 14px 2px 0; font-size: 14px; color: var(--ink-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  .board.unlocking .tile { transition: none; }
+  .vault { transition: none; }
+}
+</style>
+</head>
+<body>
+<main class="app">
+  <section id="game" aria-label="Minesweeper">
+    <h1>Sweeper</h1>
+    <div class="hud play-only">
+      <span class="stat"><b id="mines">10</b> mines left</span>
+      <button class="btn" id="new" type="button">New game</button>
+      <span class="stat right"><b id="time">0</b>s</span>
+    </div>
+    <div class="board" id="board" role="group" aria-label="Minefield"></div>
+    <p class="status" id="status" aria-live="polite">Tap a tile to start.</p>
+    <div class="mode" role="group" aria-label="What a tap does">
+      <button type="button" data-mode="dig" aria-pressed="true">Dig</button>
+      <button type="button" data-mode="flag" aria-pressed="false">Flag</button>
+    </div>
+
+    <div class="rec-only">
+      <p class="rec-count" id="rec-count" aria-live="polite"></p>
+      <div class="rec-actions">
+        <button class="btn ghost" id="rec-undo" type="button">Undo</button>
+        <button class="btn" id="rec-save" type="button">Save pattern</button>
+        <button class="btn ghost" id="rec-cancel" type="button">Cancel</button>
+      </div>
+    </div>
+
+    <details class="hint play-only">
+      <summary>Demo hint</summary>
+      <p id="hint-text"></p>
+    </details>
+
+    <details class="patterns play-only">
+      <summary>Vault patterns</summary>
+      <div class="prow">
+        <div><strong>Vault A</strong><small id="pi-a"></small></div>
+        <button class="btn" type="button" data-rec="a">Record</button>
+      </div>
+      <div class="prow">
+        <div><strong>Vault B</strong><small id="pi-b"></small></div>
+        <button class="btn" type="button" data-rec="b">Record</button>
+      </div>
+      <p class="fine">Demo only: patterns are saved unencrypted in this browser, so they won&rsquo;t follow you to another device.</p>
+      <button class="linkish" id="reset-patterns" type="button">Reset to default patterns</button>
+    </details>
+
+    <details class="shop play-only">
+      <summary>Coin shop &middot; <span id="coins-sum">0</span> coins</summary>
+      <p class="coin-line"><b id="coins">0</b> coins <span class="fine-inline">For play only. No cash-out.</span></p>
+      <div class="coin-actions">
+        <button class="btn" type="button" id="claim">Claim 50 free coins</button>
+        <button class="btn ghost" type="button" id="buy-coins">Buy coins</button>
+      </div>
+      <div class="prow">
+        <div><strong>Sunset tiles</strong><small>A warmer look for the board</small></div>
+        <button class="btn" type="button" id="buy-sunset">100 coins</button>
+      </div>
+      <div class="prow">
+        <div><strong>Safe-tile hint</strong><small>Opens one tile that isn&rsquo;t a mine</small></div>
+        <button class="btn" type="button" id="buy-hint">20 coins</button>
+      </div>
+      <div class="prow">
+        <div><strong>Extra vault slot</strong><small>Coming soon</small></div>
+        <button class="btn" type="button" disabled>250 coins</button>
+      </div>
+      <p class="fine" id="shop-msg" aria-live="polite"></p>
+    </details>
+
+    <details class="plans play-only">
+      <summary>Plans</summary>
+      <div class="cycle" role="group" aria-label="Billing period">
+        <button type="button" data-cycle="month" aria-pressed="true">Monthly</button>
+        <button type="button" data-cycle="year" aria-pressed="false">Yearly</button>
+      </div>
+      <div class="plan">
+        <h3>Free</h3>
+        <p class="price">$0</p>
+        <ul>
+          <li>The game</li>
+          <li>One vault with real encryption</li>
+          <li>Key backup, always</li>
+          <li>A few starter coins</li>
+        </ul>
+      </div>
+      <div class="plan pro">
+        <h3>Pro</h3>
+        <p class="price" id="pro-price">$5 <small>/ month</small></p>
+        <ul>
+          <li>Extra vaults</li>
+          <li>Custom unlock patterns</li>
+          <li>A decoy vault</li>
+          <li>More skins</li>
+          <li>A monthly coin allowance</li>
+        </ul>
+        <button class="btn" type="button" id="choose-pro">Choose Pro</button>
+      </div>
+      <p class="fine" id="plan-msg" aria-live="polite">Example plans and prices. This demo has everything unlocked. If a subscription lapses, only the extras turn off, and you can always open your vault and back up your keys.</p>
+    </details>
+  </section>
+
+  <section id="vault" class="vault" hidden aria-labelledby="vault-title">
+    <div class="vault-card">
+      <div class="vault-head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>
+        <h2 id="vault-title" tabindex="-1">Vault</h2>
+      </div>
+      <div class="balances">
+        <div class="bal-row"><span class="bal-label">Dollars</span><span class="bal-val" id="vault-usd">$0.00</span></div>
+        <div class="bal-row"><span class="bal-label">Bitcoin</span><span class="bal-val" id="vault-bal">0 sats</span></div>
+      </div>
+      <p class="bal-note">Demo balances, not real money</p>
+      <div class="addr" id="vault-addr" aria-label="Demo receiving address"></div>
+      <div class="actions">
+        <button type="button" data-demo="Receive">Receive</button>
+        <button type="button" data-demo="Send">Send</button>
+      </div>
+      <p class="vault-msg" id="vault-msg" aria-live="polite"></p>
+    </div>
+    <button class="lock-btn" id="lock" type="button">Lock vault</button>
+    <p class="note">Mock-up only. No real keys or funds.</p>
+  </section>
+</main>
+
+<script>
+(function () {
+  var ROWS = 9, COLS = 9, MINES = 10;
+  var MINSTEPS = 4, MAXSTEPS = 10;
+  var STORE_KEY = 'sweeper.patterns.v1';
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var FLAG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/><path d="M7 4h11l-3 4.5 3 4.5H7z" fill="var(--flag)"/></svg>';
+  var MINE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.5" fill="var(--mine)"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" stroke="var(--mine)" stroke-width="2" stroke-linecap="round" fill="none"/></svg>';
+
+  // A step is "F" (flag) or "D" (dig) followed by the tile number, 0 to 80.
+  var DEFAULTS = {
+    a: ['F0', 'F8', 'F80', 'F72'],
+    b: ['F40', 'D4', 'F76', 'D36']
+  };
+  var VAULTS = {
+    a: { name: 'Vault A', usd: '1,250.00', bal: '412,000', addr: 'bc1q-demo-address-a-not-real' },
+    b: { name: 'Vault B', usd: '320.50', bal: '87,500', addr: 'bc1q-demo-address-b-not-real' }
+  };
+  var IDS = ['a', 'b'];
+  var patterns = { a: DEFAULTS.a.slice(), b: DEFAULTS.b.slice() };
+  var custom = { a: false, b: false };
+
+  var gameEl = document.getElementById('game');
+  var vaultEl = document.getElementById('vault');
+  var boardEl = document.getElementById('board');
+  var minesEl = document.getElementById('mines');
+  var timeEl = document.getElementById('time');
+  var statusEl = document.getElementById('status');
+  var vaultMsg = document.getElementById('vault-msg');
+  var recCount = document.getElementById('rec-count');
+  var saveBtn = document.getElementById('rec-save');
+  var hintEl = document.getElementById('hint-text');
+
+  var cells = [];
+  var state = 'idle'; // idle | playing | won | lost | recording | unlocking | vault
+  var mode = 'dig';
+  var flags = 0, opened = 0, seconds = 0, timer = null;
+  var pressTimer = null, longFired = false;
+  var buffer = [];
+  var recSteps = [], recVault = null;
+
+  /* ---------- pattern storage ---------- */
+  function validPattern(a) {
+    if (!Array.isArray(a) || a.length < MINSTEPS || a.length > MAXSTEPS) return false;
+    return a.every(function (x) { return typeof x === 'string' && /^[DF]\d{1,2}$/.test(x) && +x.slice(1) < ROWS * COLS; });
+  }
+  function loadPatterns() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return;
+      var s = JSON.parse(raw);
+      IDS.forEach(function (k) {
+        if (validPattern(s[k])) { patterns[k] = s[k]; custom[k] = true; }
+      });
+      if (contains(patterns.a, patterns.b) || contains(patterns.b, patterns.a)) {
+        patterns = { a: DEFAULTS.a.slice(), b: DEFAULTS.b.slice() };
+        custom = { a: false, b: false };
+      }
+    } catch (e) { /* storage can be empty or blocked */ }
+  }
+  function savePatterns() {
+    try {
+      var out = {}, any = false;
+      IDS.forEach(function (k) { if (custom[k]) { out[k] = patterns[k]; any = true; } });
+      if (any) localStorage.setItem(STORE_KEY, JSON.stringify(out));
+      else localStorage.removeItem(STORE_KEY);
+    } catch (e) { /* ignore */ }
+  }
+  function contains(long, short) {
+    return ('|' + long.join('|') + '|').indexOf('|' + short.join('|') + '|') !== -1;
+  }
+  function patternDigCells() {
+    var s = {};
+    IDS.forEach(function (k) {
+      patterns[k].forEach(function (st) { if (st.charAt(0) === 'D') s[+st.slice(1)] = true; });
+    });
+    return s;
+  }
+  function refreshPatternUi() {
+    IDS.forEach(function (k) {
+      document.getElementById('pi-' + k).textContent =
+        custom[k] ? 'Your pattern, ' + patterns[k].length + ' steps' : 'Default pattern';
+    });
+    var lines = [];
+    if (!custom.a) lines.push('Vault A: flag the four corners, clockwise from the top left.');
+    if (!custom.b) lines.push('Vault B: flag the center tile, dig the top-middle tile, flag the bottom-middle tile, then dig the middle-left tile.');
+    hintEl.textContent = lines.length
+      ? lines.join(' ') + ' On a phone, long-press a tile to flag it, or switch to Flag mode.'
+      : 'Both vaults use patterns you recorded on this device.';
+  }
+
+  /* ---------- board ---------- */
+  function idx(c) { return c.r * COLS + c.c; }
+
+  function neighbors(cell) {
+    var out = [];
+    for (var dr = -1; dr <= 1; dr++) {
+      for (var dc = -1; dc <= 1; dc++) {
+        if (!dr && !dc) continue;
+        var r = cell.r + dr, c = cell.c + dc;
+        if (r >= 0 && r < ROWS && c >= 0 && c < COLS) out.push(cells[r * COLS + c]);
+      }
+    }
+    return out;
+  }
+
+  function build() {
+    boardEl.innerHTML = '';
+    boardEl.classList.remove('unlocking');
+    cells = [];
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        var el = document.createElement('button');
+        el.type = 'button';
+        el.className = 'tile';
+        el.dataset.i = r * COLS + c;
+        el.style.setProperty('--d', ((r + c) * 30) + 'ms');
+        boardEl.appendChild(el);
+        cells.push({ r: r, c: c, mine: false, open: false, flag: false, n: 0, boom: false, showMine: false, wrong: false, el: el });
+      }
+    }
+    for (var i = 0; i < cells.length; i++) render(cells[i]);
+  }
+
+  function render(cell) {
+    var el = cell.el;
+    var cls = 'tile', html = '';
+    var label = 'Row ' + (cell.r + 1) + ', column ' + (cell.c + 1) + ', ';
+    el.removeAttribute('data-n');
+    if (cell.showMine) {
+      cls += ' open' + (cell.boom ? ' boom' : ''); html = MINE; label += 'mine';
+    } else if (cell.open) {
+      cls += ' open';
+      if (cell.n) { html = String(cell.n); el.setAttribute('data-n', cell.n); label += cell.n + ' nearby'; }
+      else { label += 'empty'; }
+    } else if (cell.flag) {
+      html = FLAG; label += 'flagged'; if (cell.wrong) cls += ' wrong';
+    } else {
+      label += 'hidden';
+    }
+    el.className = cls;
+    el.innerHTML = html;
+    el.setAttribute('aria-label', label);
+  }
+
+  function updateHud() {
+    minesEl.textContent = MINES - flags;
+    timeEl.textContent = seconds;
+  }
+  function setStatus(t) { statusEl.textContent = t; }
+
+  function startTimer() {
+    stopTimer();
+    timer = setInterval(function () { seconds++; updateHud(); }, 1000);
+  }
+  function stopTimer() { if (timer) { clearInterval(timer); timer = null; } }
+
+  function placeMines(safe) {
+    // Never put a mine on the first tile, its neighbors, or any tile a saved pattern digs.
+    var banned = patternDigCells();
+    banned[idx(safe)] = true;
+    neighbors(safe).forEach(function (n) { banned[idx(n)] = true; });
+    var pool = cells.filter(function (_, i) { return !banned[i]; });
+    for (var i = pool.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+    }
+    for (var m = 0; m < MINES; m++) pool[m].mine = true;
+    cells.forEach(function (cell) {
+      cell.n = neighbors(cell).filter(function (n) { return n.mine; }).length;
+    });
+  }
+
+  function flood(start) {
+    var stack = [start];
+    while (stack.length) {
+      var cur = stack.pop();
+      if (cur.open || cur.flag) continue;
+      cur.open = true; opened++;
+      render(cur);
+      if (cur.n === 0) {
+        neighbors(cur).forEach(function (nb) { if (!nb.open && !nb.flag && !nb.mine) stack.push(nb); });
+      }
+    }
+  }
+
+  function dig(cell) {
+    if (cell.flag || cell.open) return;
+    if (state === 'idle') { placeMines(cell); state = 'playing'; startTimer(); setStatus('Clear every tile that isn\u2019t a mine.'); }
+    if (cell.mine) { lose(cell); return; }
+    flood(cell);
+    if (opened === ROWS * COLS - MINES) win();
+  }
+
+  function toggleFlag(cell) {
+    if (cell.open) return;
+    cell.flag = !cell.flag;
+    flags += cell.flag ? 1 : -1;
+    render(cell);
+    updateHud();
+  }
+
+  function win() {
+    state = 'won';
+    stopTimer();
+    cells.forEach(function (c) { if (c.mine && !c.flag) { c.flag = true; flags++; render(c); } });
+    updateHud();
+    shop.coins += 25;
+    saveShop();
+    refreshShop();
+    setStatus('Field cleared in ' + seconds + 's. +25 coins.');
+  }
+
+  function lose(hit) {
+    state = 'lost';
+    stopTimer();
+    hit.boom = true;
+    cells.forEach(function (c) {
+      if (c.mine && !c.flag) c.showMine = true;
+      if (!c.mine && c.flag) c.wrong = true;
+      render(c);
+    });
+    setStatus('That was a mine. Tap New game to try again.');
+  }
+
+  /* ---------- playing: every tap is a step ---------- */
+  function step(kind, cell) {
+    if (state !== 'idle' && state !== 'playing') return;
+    if (kind === 'D') dig(cell); else toggleFlag(cell);
+    if (state === 'lost') return;
+    buffer.push(kind + idx(cell));
+    if (buffer.length > MAXSTEPS) buffer.shift();
+    var id = matchVault();
+    if (id) unlock(id);
+  }
+
+  function matchVault() {
+    var order = IDS.slice().sort(function (x, y) { return patterns[y].length - patterns[x].length; });
+    for (var i = 0; i < order.length; i++) {
+      var p = patterns[order[i]];
+      if (buffer.length >= p.length && buffer.slice(-p.length).join('|') === p.join('|')) return order[i];
+    }
+    return null;
+  }
+
+  function unlock(id) {
+    state = 'unlocking';
+    stopTimer();
+    setStatus('');
+    boardEl.classList.add('unlocking');
+    setTimeout(function () { showVault(id); }, reduceMotion ? 0 : 950);
+  }
+
+  function showVault(id) {
+    var v = VAULTS[id];
+    state = 'vault';
+    vaultEl.setAttribute('data-vault', id);
+    document.getElementById('vault-title').textContent = v.name;
+    document.getElementById('vault-usd').textContent = '$' + v.usd;
+    document.getElementById('vault-bal').textContent = v.bal + ' sats';
+    document.getElementById('vault-addr').textContent = v.addr;
+    vaultMsg.textContent = '';
+    gameEl.hidden = true;
+    vaultEl.hidden = false;
+    requestAnimationFrame(function () {
+      vaultEl.classList.add('in');
+      var h = document.getElementById('vault-title');
+      if (h) h.focus({ preventScroll: true });
+      window.scrollTo(0, 0);
+    });
+  }
+
+  function lockVault() {
+    vaultEl.classList.remove('in');
+    vaultEl.hidden = true;
+    gameEl.hidden = false;
+    newGame();
+  }
+
+  function newGame() {
+    stopTimer();
+    state = 'idle'; flags = 0; opened = 0; seconds = 0; buffer = [];
+    build();
+    updateHud();
+    setStatus('Tap a tile to start.');
+  }
+
+  /* ---------- recording a pattern ---------- */
+  function startRecording(id) {
+    stopTimer();
+    recVault = id; recSteps = [];
+    gameEl.classList.add('recording');
+    build();
+    state = 'recording';
+    renderRec();
+    updateRecUi();
+    setStatus('Recording ' + VAULTS[id].name + '. Choose Dig or Flag, then tap tiles in order.');
+    window.scrollTo(0, 0);
+  }
+
+  function renderRec() {
+    var marks = {};
+    recSteps.forEach(function (s, n) {
+      var i = +s.slice(1);
+      (marks[i] = marks[i] || []).push({ n: n + 1, k: s.charAt(0) });
+    });
+    cells.forEach(function (cell) {
+      var el = cell.el, m = marks[idx(cell)];
+      var label = 'Row ' + (cell.r + 1) + ', column ' + (cell.c + 1);
+      el.removeAttribute('data-n');
+      if (m) {
+        var hasF = m.some(function (x) { return x.k === 'F'; });
+        el.className = 'tile open ' + (hasF ? 'mark-f' : 'mark-d');
+        el.innerHTML = '<span class="mk">' + m.map(function (x) { return x.n + x.k; }).join(' ') + '</span>';
+        label += ', ' + m.map(function (x) { return 'step ' + x.n + ' ' + (x.k === 'F' ? 'flag' : 'dig'); }).join(', ');
+      } else {
+        el.className = 'tile';
+        el.innerHTML = '';
+        label += ', not in pattern';
+      }
+      el.setAttribute('aria-label', label);
+    });
+  }
+
+  function updateRecUi() {
+    var n = recSteps.length;
+    var txt = n + ' step' + (n === 1 ? '' : 's') + '. F is flag, D is dig. ';
+    if (n < MINSTEPS) txt += 'Add at least ' + (MINSTEPS - n) + ' more.';
+    else if (n < 6) txt += 'Weak. 6 or more is better.';
+    else if (n < 8) txt += 'Good.';
+    else txt += 'Strong.';
+    recCount.textContent = txt;
+    saveBtn.disabled = n < MINSTEPS;
+    document.getElementById('rec-undo').disabled = n === 0;
+  }
+
+  function recordTap(kind, cell) {
+    if (recSteps.length >= MAXSTEPS) {
+      setStatus('That\u2019s the maximum of ' + MAXSTEPS + ' steps. Save, or undo a step.');
+      return;
+    }
+    recSteps.push(kind + idx(cell));
+    renderRec();
+    updateRecUi();
+  }
+
+  function saveRecording() {
+    if (recSteps.length < MINSTEPS) return;
+    var other = recVault === 'a' ? 'b' : 'a';
+    if (contains(patterns[other], recSteps) || contains(recSteps, patterns[other])) {
+      setStatus('That overlaps ' + VAULTS[other].name + '\u2019s pattern. Try a different sequence.');
+      return;
+    }
+    var name = VAULTS[recVault].name;
+    patterns[recVault] = recSteps.slice();
+    custom[recVault] = true;
+    savePatterns();
+    exitRecording();
+    refreshPatternUi();
+    setStatus(name + ' pattern saved. Try it on the board.');
+  }
+
+  function exitRecording() {
+    recVault = null; recSteps = [];
+    gameEl.classList.remove('recording');
+    newGame();
+  }
+
+  /* ---------- input ---------- */
+  function cellFrom(e) {
+    var t = e.target.closest ? e.target.closest('.tile') : null;
+    return t ? cells[+t.dataset.i] : null;
+  }
+
+  boardEl.addEventListener('pointerdown', function (e) {
+    var cell = cellFrom(e);
+    if (!cell) return;
+    if (e.pointerType === 'mouse') {
+      if (e.button === 2) {
+        e.preventDefault();
+        if (state === 'recording') recordTap('F', cell); else step('F', cell);
+      }
+      return;
+    }
+    if (state === 'recording') return;
+    longFired = false;
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(function () { longFired = true; step('F', cell); }, 450);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) {
+    boardEl.addEventListener(ev, function () { clearTimeout(pressTimer); });
+  });
+  boardEl.addEventListener('click', function (e) {
+    var cell = cellFrom(e);
+    if (!cell) return;
+    if (longFired) { longFired = false; return; }
+    var kind = mode === 'flag' ? 'F' : 'D';
+    if (state === 'recording') recordTap(kind, cell); else step(kind, cell);
+  });
+  boardEl.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  boardEl.addEventListener('keydown', function (e) {
+    if (e.key === 'f' || e.key === 'F') {
+      var cell = cellFrom(e);
+      if (!cell) return;
+      if (state === 'recording') recordTap('F', cell); else step('F', cell);
+    }
+  });
+
+  document.getElementById('new').addEventListener('click', newGame);
+  document.getElementById('lock').addEventListener('click', lockVault);
+  document.getElementById('rec-undo').addEventListener('click', function () {
+    recSteps.pop(); renderRec(); updateRecUi();
+  });
+  saveBtn.addEventListener('click', saveRecording);
+  document.getElementById('rec-cancel').addEventListener('click', function () {
+    exitRecording();
+    setStatus('Recording canceled. Nothing was changed.');
+  });
+  document.querySelectorAll('[data-rec]').forEach(function (b) {
+    b.addEventListener('click', function () { startRecording(b.getAttribute('data-rec')); });
+  });
+  document.getElementById('reset-patterns').addEventListener('click', function () {
+    patterns = { a: DEFAULTS.a.slice(), b: DEFAULTS.b.slice() };
+    custom = { a: false, b: false };
+    savePatterns();
+    refreshPatternUi();
+    newGame();
+    setStatus('Patterns reset to the defaults.');
+  });
+
+  document.querySelectorAll('.mode button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      mode = b.getAttribute('data-mode');
+      document.querySelectorAll('.mode button').forEach(function (o) {
+        o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
+      });
+    });
+  });
+
+  document.querySelectorAll('[data-demo]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      vaultMsg.textContent = b.getAttribute('data-demo') + ' is a demo button and doesn\u2019t do anything yet.';
+    });
+  });
+
+  /* ---------- coin shop (play coins only, no cash-out) ---------- */
+  var SHOP_KEY = 'sweeper.shop.v1';
+  var shop = { coins: 0, sunset: false, equipped: false, claimed: 0 };
+
+  function loadShop() {
+    try {
+      var raw = localStorage.getItem(SHOP_KEY);
+      if (!raw) return;
+      var s = JSON.parse(raw);
+      if (typeof s.coins === 'number' && s.coins >= 0) shop.coins = Math.floor(s.coins);
+      shop.sunset = !!s.sunset;
+      shop.equipped = !!s.equipped && shop.sunset;
+      shop.claimed = typeof s.claimed === 'number' ? s.claimed : 0;
+    } catch (e) { /* storage can be empty or blocked */ }
+  }
+  function saveShop() {
+    try { localStorage.setItem(SHOP_KEY, JSON.stringify(shop)); } catch (e) { /* ignore */ }
+  }
+  function shopMsg(t) { document.getElementById('shop-msg').textContent = t; }
+  function refreshShop() {
+    document.getElementById('coins').textContent = shop.coins;
+    document.getElementById('coins-sum').textContent = shop.coins;
+    if (shop.equipped) document.documentElement.setAttribute('data-tiles', 'sunset');
+    else document.documentElement.removeAttribute('data-tiles');
+    document.getElementById('buy-sunset').textContent = shop.sunset ? (shop.equipped ? 'Unequip' : 'Equip') : '100 coins';
+  }
+
+  document.getElementById('claim').addEventListener('click', function () {
+    var day = 24 * 60 * 60 * 1000;
+    if (Date.now() - shop.claimed < day) { shopMsg('Come back tomorrow for more free coins.'); return; }
+    shop.coins += 50; shop.claimed = Date.now();
+    saveShop(); refreshShop(); shopMsg('+50 coins.');
+  });
+  document.getElementById('buy-coins').addEventListener('click', function () {
+    shopMsg('Payments aren\u2019t connected yet. This will open a checkout link.');
+  });
+  document.getElementById('buy-sunset').addEventListener('click', function () {
+    if (shop.sunset) {
+      shop.equipped = !shop.equipped;
+      saveShop(); refreshShop(); shopMsg(shop.equipped ? 'Sunset tiles equipped.' : 'Sunset tiles unequipped.');
+      return;
+    }
+    if (shop.coins < 100) { shopMsg('Not enough coins yet.'); return; }
+    shop.coins -= 100; shop.sunset = true; shop.equipped = true;
+    saveShop(); refreshShop(); shopMsg('Sunset tiles unlocked.');
+  });
+  document.getElementById('buy-hint').addEventListener('click', function () {
+    if (state !== 'playing') { shopMsg('Make your first dig, then use a hint.'); return; }
+    if (shop.coins < 20) { shopMsg('Not enough coins yet.'); return; }
+    var safe = cells.filter(function (c) { return !c.mine && !c.open && !c.flag; });
+    if (!safe.length) { shopMsg('No safe tiles left to reveal.'); return; }
+    shop.coins -= 20;
+    var pick = safe[Math.floor(Math.random() * safe.length)];
+    flood(pick);
+    if (opened === ROWS * COLS - MINES) win();
+    saveShop(); refreshShop(); shopMsg('Hint used.');
+  });
+
+  /* ---------- plans (example screen, no checkout yet) ---------- */
+  document.querySelectorAll('[data-cycle]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var yearly = b.getAttribute('data-cycle') === 'year';
+      document.querySelectorAll('[data-cycle]').forEach(function (o) {
+        o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
+      });
+      document.getElementById('pro-price').innerHTML = yearly
+        ? '$50 <small>/ year, about 2 months free</small>'
+        : '$5 <small>/ month</small>';
+    });
+  });
+  document.getElementById('choose-pro').addEventListener('click', function () {
+    document.getElementById('plan-msg').textContent = 'Checkout isn\u2019t connected yet. This will open a subscription checkout.';
+  });
+
+  loadPatterns();
+  loadShop();
+  refreshShop();
+  refreshPatternUi();
+  newGame();
+})();
+</script>
+</body>
+</html>
